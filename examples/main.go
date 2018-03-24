@@ -1,13 +1,10 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/russmack/merkletree-go"
 )
 
 func main() {
-
 	// Merkle tree is initialised with complete list of leaf node
 	// transactions, ie there is no later adding of nodes.
 
@@ -15,7 +12,5 @@ func main() {
 
 	m := merkletree.New(txns)
 
-	fmt.Println("tree:", m)
-
-	fmt.Println("tree:", m)
+	m.PrintTree()
 }

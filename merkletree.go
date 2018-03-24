@@ -1,12 +1,12 @@
 package merkletree
 
 import (
-	//"fmt"
+	"fmt"
 	"hash/fnv"
 	"strconv"
 )
 
-type MerkleTree struct {
+type merkleTree struct {
 	Root *node
 }
 
@@ -16,9 +16,49 @@ type node struct {
 	Right *node
 }
 
-func New(txns []string) *MerkleTree {
-	return build(txns)
-	//		Root: &node{},
+// New takes a list of transactions and returns a merkle tree.
+func New(txns []string) *merkleTree {
+	nodes := txnsToLeafNodes(txns)
+
+	for len(nodes) > 1 {
+		nodes = makeParents(nodes)
+	}
+
+	t := &merkleTree{
+		Root: nodes[0],
+	}
+
+	return t
+}
+
+// PrintTree prints the nodes of the merkle tree.
+func (m *merkleTree) PrintTree() {
+	n := m.Root
+	level := []*node{n}
+	printByLevel(level)
+}
+
+func printByLevel(level []*node) {
+	fmt.Println("-----------------")
+	if len(level) == 0 {
+		return
+	}
+
+	buff := []*node{}
+
+	for i, n := range level {
+		if n != nil {
+			fmt.Printf("> %p : %+v\n", level[i], level[i])
+			buff = append(buff, n.Left)
+			buff = append(buff, n.Right)
+		}
+	}
+
+	if len(buff) == 0 {
+		return
+	}
+
+	printByLevel(buff)
 }
 
 func hashFnv1a(s ...string) uint64 {
@@ -29,28 +69,34 @@ func hashFnv1a(s ...string) uint64 {
 	return h.Sum64()
 }
 
-func build(txns []string) *MerkleTree {
-	nparents := (len(txns) + 1) / 2
+func txnsToLeafNodes(txns []string) []*node {
+	nodes := make([]*node, len(txns))
 
-	parents := make([]*node, nparents)
+	for i, _ := range txns {
+		n := &node{
+			Hash:  hashFnv1a(txns[i]),
+			Left:  nil,
+			Right: nil,
+		}
 
-	t := &MerkleTree{}
+		nodes[i] = n
+	}
+
+	return nodes
+}
+
+func makeParents(nodes []*node) []*node {
+	nodeCount := len(nodes)
+	nParents := (nodeCount + 1) / 2
+	parents := make([]*node, nParents)
 
 	// For each pair of transaction leaf nodes create a parent node.
+	pairedItems := nodeCount - (nodeCount % 2)
 
 	p := 0
-	for i := 0; i < len(txns)-1; i += 2 {
-		left := &node{
-			hashFnv1a(txns[i]),
-			nil,
-			nil,
-		}
-
-		right := &node{
-			hashFnv1a(txns[i+1]),
-			nil,
-			nil,
-		}
+	for i := 0; i < pairedItems-1; i += 2 {
+		left := nodes[i]
+		right := nodes[i+1]
 
 		parent := &node{
 			hashFnv1a(
@@ -65,22 +111,18 @@ func build(txns []string) *MerkleTree {
 		p++
 	}
 
-	// If odd txns len now add the unpaired final txn.
-	if len(txns)%2 != 0 {
-		left := &node{
-			hashFnv1a(txns[len(txns)-1]),
-			nil,
-			nil,
-		}
+	// Create parent for remaining unpaired node if an odd number of nodes.
+	if nodeCount%2 != 0 {
+		left := nodes[nodeCount-1]
 
 		parent := &node{
-			left.Hash,
-			left,
-			nil,
+			Hash:  left.Hash,
+			Left:  left,
+			Right: nil,
 		}
 
 		parents[len(parents)-1] = parent
 	}
 
-	return t
+	return parents
 }
